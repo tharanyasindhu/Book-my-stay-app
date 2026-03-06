@@ -1,146 +1,102 @@
-// Version 4.1
-// Use Case 4: Room Search & Availability Check
+import java.util.LinkedList;
+import java.util.Queue;
 
-import java.util.*;
+// Actor: Reservation (Guest booking intent)
+class Reservation {
+    private String guestName;
+    private String roomType;
+    private int nights;
 
-// Version 2.1 (Refactored Room Domain Model)
-abstract class Room {
-
-    private int numberOfBeds;
-    private int roomSize;
-    private double pricePerNight;
-
-    public Room(int numberOfBeds, int roomSize, double pricePerNight) {
-        this.numberOfBeds = numberOfBeds;
-        this.roomSize = roomSize;
-        this.pricePerNight = pricePerNight;
+    public Reservation(String guestName, String roomType, int nights) {
+        this.guestName = guestName;
+        this.roomType = roomType;
+        this.nights = nights;
     }
 
-    public int getNumberOfBeds() {
-        return numberOfBeds;
-    }
-
-    public int getRoomSize() {
-        return roomSize;
-    }
-
-    public double getPricePerNight() {
-        return pricePerNight;
-    }
-
-    public abstract String getRoomType();
-
-    public void displayRoomDetails() {
-        System.out.println("Room Type: " + getRoomType());
-        System.out.println("Beds: " + numberOfBeds);
-        System.out.println("Room Size: " + roomSize + " sq.ft");
-        System.out.println("Price Per Night: $" + pricePerNight);
-    }
-}
-
-
-// Version 2.0
-class SingleRoom extends Room {
-
-    public SingleRoom() {
-        super(1, 200, 100);
+    public String getGuestName() {
+        return guestName;
     }
 
     public String getRoomType() {
-        return "Single Room";
+        return roomType;
+    }
+
+    public int getNights() {
+        return nights;
+    }
+
+    @Override
+    public String toString() {
+        return "Guest: " + guestName + ", Room Type: " + roomType + ", Nights: " + nights;
     }
 }
 
+// Booking Request Queue (Manages incoming booking requests)
+class BookingRequestQueue {
+    private Queue<Reservation> requestQueue;
 
-// Version 2.0
-class DoubleRoom extends Room {
-
-    public DoubleRoom() {
-        super(2, 350, 180);
+    public BookingRequestQueue() {
+        requestQueue = new LinkedList<>();
     }
 
-    public String getRoomType() {
-        return "Double Room";
-    }
-}
-
-
-// Version 2.0
-class SuiteRoom extends Room {
-
-    public SuiteRoom() {
-        super(3, 600, 350);
+    // Add booking request
+    public void addBookingRequest(Reservation reservation) {
+        requestQueue.offer(reservation);
+        System.out.println("Booking request added: " + reservation.getGuestName());
     }
 
-    public String getRoomType() {
-        return "Suite Room";
-    }
-}
+    // View all queued requests
+    public void displayQueue() {
+        if (requestQueue.isEmpty()) {
+            System.out.println("No booking requests in queue.");
+            return;
+        }
 
-
-// Version 3.1 (Centralized Inventory)
-class RoomInventory {
-
-    private HashMap<String, Integer> inventory;
-
-    public RoomInventory() {
-        inventory = new HashMap<>();
-
-        inventory.put("Single Room", 5);
-        inventory.put("Double Room", 3);
-        inventory.put("Suite Room", 0); // Example: unavailable
-    }
-
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
-    }
-
-    // No modification methods used in search (read-only access)
-}
-
-
-// Version 4.0 (New Class)
-class SearchService {
-
-    public void searchAvailableRooms(RoomInventory inventory, List<Room> rooms) {
-
-        System.out.println("===== Available Rooms =====\n");
-
-        for (Room room : rooms) {
-
-            int available = inventory.getAvailability(room.getRoomType());
-
-            // Defensive check: only show rooms with availability
-            if (available > 0) {
-                room.displayRoomDetails();
-                System.out.println("Available Rooms: " + available);
-                System.out.println();
-            }
+        System.out.println("\nBooking Requests in Arrival Order:");
+        for (Reservation r : requestQueue) {
+            System.out.println(r);
         }
     }
+
+    // Peek next request (for future allocation)
+    public Reservation peekNextRequest() {
+        return requestQueue.peek();
+    }
+
+    // Remove request after processing (not used here but ready for next use case)
+    public Reservation processNextRequest() {
+        return requestQueue.poll();
+    }
 }
 
-
-// Version 4.1 (Main Application)
+// Main class
 public class BookMyStayApp {
 
     public static void main(String[] args) {
 
-        // Initialize inventory
-        RoomInventory inventory = new RoomInventory();
+        BookingRequestQueue queue = new BookingRequestQueue();
 
-        // Create room domain objects
-        List<Room> rooms = new ArrayList<>();
-        rooms.add(new SingleRoom());
-        rooms.add(new DoubleRoom());
-        rooms.add(new SuiteRoom());
+        // Guest booking requests arriving
+        Reservation r1 = new Reservation("Amit", "Deluxe", 2);
+        Reservation r2 = new Reservation("Priya", "Suite", 3);
+        Reservation r3 = new Reservation("Rahul", "Standard", 1);
+        Reservation r4 = new Reservation("Sneha", "Deluxe", 2);
 
-        // Initialize search service
-        SearchService searchService = new SearchService();
+        // Step 1: Guests submit booking requests
+        queue.addBookingRequest(r1);
+        queue.addBookingRequest(r2);
+        queue.addBookingRequest(r3);
+        queue.addBookingRequest(r4);
 
-        // Guest performs search
-        searchService.searchAvailableRooms(inventory, rooms);
+        // Step 2: Requests stored in FIFO order
+        queue.displayQueue();
 
-        // Inventory remains unchanged (read-only operation)
+        // Step 3: Show next request to be processed (without allocation)
+        Reservation next = queue.peekNextRequest();
+        if (next != null) {
+            System.out.println("\nNext request to be processed (FIFO): " + next);
+        }
+
+        System.out.println("\nNote: No room allocation performed at this stage.");
     }
 }
