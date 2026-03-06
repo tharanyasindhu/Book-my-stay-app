@@ -1,11 +1,11 @@
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.*;
 
 // Actor: Reservation (Guest booking intent)
 class Reservation {
     private String guestName;
     private String roomType;
     private int nights;
+    private String roomId; // assigned during allocation
 
     public Reservation(String guestName, String roomType, int nights) {
         this.guestName = guestName;
@@ -25,13 +25,24 @@ class Reservation {
         return nights;
     }
 
+    public String getRoomId() {
+        return roomId;
+    }
+
+    public void assignRoomId(String roomId) {
+        this.roomId = roomId;
+    }
+
     @Override
     public String toString() {
-        return "Guest: " + guestName + ", Room Type: " + roomType + ", Nights: " + nights;
+        return "Guest: " + guestName +
+                ", Room Type: " + roomType +
+                ", Nights: " + nights +
+                (roomId != null ? ", Assigned Room ID: " + roomId : "");
     }
 }
 
-// Booking Request Queue (Manages incoming booking requests)
+// Booking Request Queue (Use Case 5)
 class BookingRequestQueue {
     private Queue<Reservation> requestQueue;
 
@@ -39,64 +50,117 @@ class BookingRequestQueue {
         requestQueue = new LinkedList<>();
     }
 
-    // Add booking request
     public void addBookingRequest(Reservation reservation) {
         requestQueue.offer(reservation);
         System.out.println("Booking request added: " + reservation.getGuestName());
     }
 
-    // View all queued requests
+    public Reservation getNextRequest() {
+        return requestQueue.poll();
+    }
+
+    public boolean hasRequests() {
+        return !requestQueue.isEmpty();
+    }
+
     public void displayQueue() {
         if (requestQueue.isEmpty()) {
             System.out.println("No booking requests in queue.");
             return;
         }
-
-        System.out.println("\nBooking Requests in Arrival Order:");
+        System.out.println("\nCurrent Booking Queue:");
         for (Reservation r : requestQueue) {
             System.out.println(r);
         }
     }
+}
 
-    // Peek next request (for future allocation)
-    public Reservation peekNextRequest() {
-        return requestQueue.peek();
+// Inventory and Allocation Service (Use Case 6)
+class RoomInventoryService {
+    private Map<String, Integer> roomInventory; // Room type -> available count
+    private Map<String, Set<String>> allocatedRooms; // Room type -> assigned room IDs
+    private Random random;
+
+    public RoomInventoryService() {
+        roomInventory = new HashMap<>();
+        allocatedRooms = new HashMap<>();
+        random = new Random();
+
+        // Initialize inventory
+        roomInventory.put("Standard", 5);
+        roomInventory.put("Deluxe", 3);
+        roomInventory.put("Suite", 2);
+
+        // Initialize allocated rooms map
+        for (String type : roomInventory.keySet()) {
+            allocatedRooms.put(type, new HashSet<>());
+        }
     }
 
-    // Remove request after processing (not used here but ready for next use case)
-    public Reservation processNextRequest() {
-        return requestQueue.poll();
+    // Check availability
+    public boolean isAvailable(String roomType) {
+        return roomInventory.getOrDefault(roomType, 0) > 0;
+    }
+
+    // Allocate a room safely
+    public String allocateRoom(String roomType) {
+        if (!isAvailable(roomType)) {
+            return null;
+        }
+
+        String roomId;
+        Set<String> allocated = allocatedRooms.get(roomType);
+        do {
+            roomId = roomType.substring(0, 1).toUpperCase() + (random.nextInt(100) + 1);
+        } while (allocated.contains(roomId));
+
+        allocated.add(roomId);
+        roomInventory.put(roomType, roomInventory.get(roomType) - 1); // decrement inventory
+        return roomId;
+    }
+
+    // Display inventory state
+    public void displayInventory() {
+        System.out.println("\nCurrent Inventory State:");
+        for (Map.Entry<String, Integer> entry : roomInventory.entrySet()) {
+            System.out.println(entry.getKey() + " -> Available: " + entry.getValue() +
+                    ", Allocated Rooms: " + allocatedRooms.get(entry.getKey()));
+        }
     }
 }
 
 // Main class
 public class BookMyStayApp {
-
     public static void main(String[] args) {
-
         BookingRequestQueue queue = new BookingRequestQueue();
-
-        // Guest booking requests arriving
-        Reservation r1 = new Reservation("Amit", "Deluxe", 2);
-        Reservation r2 = new Reservation("Priya", "Suite", 3);
-        Reservation r3 = new Reservation("Rahul", "Standard", 1);
-        Reservation r4 = new Reservation("Sneha", "Deluxe", 2);
+        RoomInventoryService inventoryService = new RoomInventoryService();
 
         // Step 1: Guests submit booking requests
-        queue.addBookingRequest(r1);
-        queue.addBookingRequest(r2);
-        queue.addBookingRequest(r3);
-        queue.addBookingRequest(r4);
+        queue.addBookingRequest(new Reservation("Amit", "Deluxe", 2));
+        queue.addBookingRequest(new Reservation("Priya", "Suite", 3));
+        queue.addBookingRequest(new Reservation("Rahul", "Standard", 1));
+        queue.addBookingRequest(new Reservation("Sneha", "Deluxe", 2));
+        queue.addBookingRequest(new Reservation("Anjali", "Suite", 1)); // test limited inventory
 
-        // Step 2: Requests stored in FIFO order
+        // Display current queue
         queue.displayQueue();
 
-        // Step 3: Show next request to be processed (without allocation)
-        Reservation next = queue.peekNextRequest();
-        if (next != null) {
-            System.out.println("\nNext request to be processed (FIFO): " + next);
+        // Step 2: Process queue and allocate rooms
+        System.out.println("\nProcessing booking requests...");
+        while (queue.hasRequests()) {
+            Reservation reservation = queue.getNextRequest();
+            String roomType = reservation.getRoomType();
+
+            if (inventoryService.isAvailable(roomType)) {
+                String roomId = inventoryService.allocateRoom(roomType);
+                reservation.assignRoomId(roomId);
+                System.out.println("Reservation confirmed: " + reservation);
+            } else {
+                System.out.println("No available rooms for: " + reservation.getGuestName() + " (" + roomType + ")");
+            }
         }
 
-        System.out.println("\nNote: No room allocation performed at this stage.");
+        // Display final inventory state
+        inventoryService.displayInventory();
     }
 }
